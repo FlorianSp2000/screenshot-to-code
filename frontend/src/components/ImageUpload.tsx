@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "react-hot-toast";
-import { URLS } from "../urls";
-import ScreenRecorder from "./recording/ScreenRecorder";
-import { ScreenRecorderState } from "../types";
+// import { URLS } from "../urls";
+// import ScreenRecorder from "./recording/ScreenRecorder";
+// import { ScreenRecorderState } from "../types";
 
 const baseStyle = {
   flex: 1,
@@ -61,8 +61,9 @@ interface Props {
 function ImageUpload({ setReferenceImages }: Props) {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   // TODO: Switch to Zustand
-  const [screenRecorderState, setScreenRecorderState] =
-    useState<ScreenRecorderState>(ScreenRecorderState.INITIAL);
+  // TODO: Temporarily commented out - focusing on image-to-code functionality
+  // const [screenRecorderState, setScreenRecorderState] =
+  //   useState<ScreenRecorderState>(ScreenRecorderState.INITIAL);
 
   const { getRootProps, getInputProps, isFocused, isDragAccept, isDragReject } =
     useDropzone({
@@ -160,17 +161,16 @@ function ImageUpload({ setReferenceImages }: Props) {
 
   return (
     <section className="container">
-      {screenRecorderState === ScreenRecorderState.INITIAL && (
-        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-        <div {...getRootProps({ style: style as any })}>
-          <input {...getInputProps()} className="file-input" />
-          <p className="text-slate-700 text-lg">
-            Drag & drop a screenshot here, <br />
-            or click to upload
-          </p>
-        </div>
-      )}
-      {screenRecorderState === ScreenRecorderState.INITIAL && (
+      {/* Always show the upload area since screen recorder is disabled */}
+      <div {...getRootProps({ style: style as any })}>
+        <input {...getInputProps()} className="file-input" />
+        <p className="text-slate-700 text-lg">
+          Drag & drop a screenshot here, <br />
+          or click to upload
+        </p>
+      </div>
+      {/* TODO: Temporarily commented out - focusing on image-to-code functionality */}
+      {/* {screenRecorderState === ScreenRecorderState.INITIAL && (
         <div className="text-center text-sm text-slate-800 mt-4">
           Upload a screen recording (.mp4, .mov) or record your screen to clone
           a whole app (experimental).{" "}
@@ -187,7 +187,7 @@ function ImageUpload({ setReferenceImages }: Props) {
         screenRecorderState={screenRecorderState}
         setScreenRecorderState={setScreenRecorderState}
         generateCode={setReferenceImages}
-      />
+      /> */}
     </section>
   );
 }

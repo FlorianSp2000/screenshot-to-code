@@ -24,14 +24,14 @@ function OutputSettingsSection({
 }: Props) {
   return (
     <div className="flex flex-col gap-y-2 justify-between text-sm">
-      <div className="grid grid-cols-3 items-center gap-4">
-        <span>{label}</span>
+      <div className={label ? "grid grid-cols-3 items-center gap-4" : "flex items-center"}>
+        {label && <span>{label}</span>}
         <Select
           value={stack}
           onValueChange={(value: string) => setStack(value as Stack)}
           disabled={shouldDisableUpdates}
         >
-          <SelectTrigger className="col-span-2" id="output-settings-js">
+          <SelectTrigger className={label ? "col-span-2" : "w-full"} id="output-settings-js">
             {stack ? <StackLabel stack={stack} /> : "Select a stack"}
           </SelectTrigger>
           <SelectContent>

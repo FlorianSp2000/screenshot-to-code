@@ -31,6 +31,7 @@ export const GenerationSettings: React.FC<GenerationSettingsProps> = ({
         stack={settings.generatedCodeConfig}
         setStack={setStack}
         shouldDisableUpdates={shouldDisableUpdates}
+        label=""
       />
     </div>
   );

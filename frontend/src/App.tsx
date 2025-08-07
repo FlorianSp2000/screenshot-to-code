@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { generateCode } from "./generateCode";
 import SettingsDialog from "./components/settings/SettingsDialog";
 import { AppState, CodeGenerationParams, EditorTheme, Settings } from "./types";
@@ -23,9 +23,56 @@ import { GenerationSettings } from "./components/settings/GenerationSettings";
 import StartPane from "./components/start-pane/StartPane";
 import { Commit } from "./components/commits/types";
 import { createCommit } from "./components/commits/utils";
-import GenerateFromText from "./components/generate-from-text/GenerateFromText";
+import { FaHome, FaEdit } from "react-icons/fa";
+// import GenerateFromText from "./components/generate-from-text/GenerateFromText";
 
 function App() {
+  const [activeTab, setActiveTab] = useState("desktop");
+  const [conversationName, setConversationName] = useState("DigitalLounge@Lakeside");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(384); // 96 * 4px = 384px (w-96)
+  const [isResizing, setIsResizing] = useState(false);
+
+  // Handle sidebar resizing
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+  
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      e.preventDefault();
+      const newWidth = Math.max(300, Math.min(600, e.clientX)); // Min 300px, Max 600px
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  const handleTabChange = (tab: string) => {
+    console.log("App: Tab changed to:", tab);
+    console.log("App: Current activeTab before change:", activeTab);
+    setActiveTab(tab);
+    console.log("App: activeTab set to:", tab);
+  };
+
+  // Debug activeTab changes
+  useEffect(() => {
+    console.log("App: activeTab state changed to:", activeTab);
+    console.log("App: Sidebar should be hidden:", activeTab === "split");
+  }, [activeTab]);
+  
   const {
     // Inputs
     inputMode,
@@ -35,7 +82,7 @@ function App() {
     referenceImages,
     setReferenceImages,
     initialPrompt,
-    setInitialPrompt,
+    // setInitialPrompt,
 
     head,
     commits,
@@ -148,8 +195,9 @@ function App() {
     if (inputMode === "image" || inputMode === "video") {
       doCreate(referenceImages, inputMode);
     } else {
-      // TODO: Fix this
-      doCreateFromText(initialPrompt);
+      // TODO: Text mode temporarily disabled - focusing on image-to-code functionality
+      // doCreateFromText(initialPrompt);
+      console.warn("Text mode regeneration is temporarily disabled");
     }
   };
 
@@ -265,18 +313,19 @@ function App() {
     }
   }
 
-  function doCreateFromText(text: string) {
-    // Reset any existing state
-    reset();
+  // TODO: Temporarily commented out - focusing on image-to-code functionality
+  // function doCreateFromText(text: string) {
+  //   // Reset any existing state
+  //   reset();
 
-    setInputMode("text");
-    setInitialPrompt(text);
-    doGenerateCode({
-      generationType: "create",
-      inputMode: "text",
-      prompt: { text, images: [] },
-    });
-  }
+  //   setInputMode("text");
+  //   setInitialPrompt(text);
+  //   doGenerateCode({
+  //     generationType: "create",
+  //     inputMode: "text",
+  //     prompt: { text, images: [] },
+  //   });
+  // }
 
   // Subsequent updates
   async function doUpdate(
@@ -342,39 +391,40 @@ function App() {
     }));
   };
 
-  function setStack(stack: Stack) {
-    setSettings((prev) => ({
-      ...prev,
-      generatedCodeConfig: stack,
-    }));
-  }
+  // function setStack(stack: Stack) {
+  //   setSettings((prev) => ({
+  //     ...prev,
+  //     generatedCodeConfig: stack,
+  //   }));
+  // }
 
-  function importFromCode(code: string, stack: Stack) {
-    // Reset any existing state
-    reset();
+  // TODO: Temporarily commented out - focusing on image-to-code functionality
+  // function importFromCode(code: string, stack: Stack) {
+  //   // Reset any existing state
+  //   reset();
 
-    // Set input state
-    setIsImportedFromCode(true);
+  //   // Set input state
+  //   setIsImportedFromCode(true);
 
-    // Set up this project
-    setStack(stack);
+  //   // Set up this project
+  //   setStack(stack);
 
-    // Create a new commit and set it as the head
-    const commit = createCommit({
-      type: "code_create",
-      parentHash: null,
-      variants: [{ code }],
-      inputs: null,
-    });
-    addCommit(commit);
-    setHead(commit.hash);
+  //   // Create a new commit and set it as the head
+  //   const commit = createCommit({
+  //     type: "code_create",
+  //     parentHash: null,
+  //     variants: [{ code }],
+  //     inputs: null,
+  //   });
+  //   addCommit(commit);
+  //   setHead(commit.hash);
 
-    // Set the app state
-    setAppState(AppState.CODE_READY);
-  }
+  //   // Set the app state
+  //   setAppState(AppState.CODE_READY);
+  // }
 
   return (
-    <div className="mt-2 dark:bg-black dark:text-white">
+    <div className="dark:bg-black dark:text-white">
       {IS_RUNNING_ON_CLOUD && <PicoBadge />}
       {IS_RUNNING_ON_CLOUD && (
         <TermsOfServiceDialog
@@ -382,53 +432,120 @@ function App() {
           onOpenChange={handleTermDialogOpenChange}
         />
       )}
-      <div className="lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-96 lg:flex-col">
-        <div className="flex grow flex-col gap-y-2 overflow-y-auto border-r border-gray-200 bg-white px-6 dark:bg-zinc-950 dark:text-white">
-          {/* Header with access to settings */}
-          <div className="flex items-center justify-between mt-10 mb-2">
-            <h1 className="text-2xl ">Screenshot to Code</h1>
-            <SettingsDialog settings={settings} setSettings={setSettings} />
+      {/* Conditionally hide sidebar in split view with smooth transition */}
+      <div 
+        className={`lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col transition-transform duration-300 ease-in-out ${activeTab === "split" ? "lg:-translate-x-full" : "lg:translate-x-0"}`}
+        style={{ width: `${sidebarWidth}px` }}
+      >
+        <div className="flex grow flex-col gap-y-2 overflow-y-auto bg-white dark:bg-zinc-950 dark:text-white relative">
+          {/* Resize handle */}
+          <div 
+            className="absolute top-0 right-0 w-1 h-full cursor-col-resize bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors z-50"
+            onMouseDown={startResizing}
+          />
+          {/* Conversation Header */}
+          <div className="mt-3 mb-6">
+            <div className="flex items-center justify-between pb-3 mx-6">
+              <div className="flex items-center gap-2 flex-1">
+                {isEditingName ? (
+                  <input
+                    type="text"
+                    value={conversationName}
+                    onChange={(e) => setConversationName(e.target.value)}
+                    onBlur={() => setIsEditingName(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") setIsEditingName(false);
+                      if (e.key === "Escape") {
+                        setConversationName("DigitalLounge@Lakeside");
+                        setIsEditingName(false);
+                      }
+                    }}
+                    className="text-sm font-medium bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-blue-500 px-1 py-0.5"
+                    autoFocus
+                  />
+                ) : (
+                  <h1 className="text-sm font-medium text-gray-900 dark:text-white">{conversationName}</h1>
+                )}
+                <button
+                  onClick={() => setIsEditingName(true)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <FaEdit size={12} />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={reset}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  title="Go to Home"
+                >
+                  <FaHome size={14} />
+                </button>
+                <SettingsDialog settings={settings} setSettings={setSettings} />
+              </div>
+            </div>
+            <div className="border-b border-gray-200 dark:border-gray-700"></div>
           </div>
-
-          {/* Generation settings like stack and model */}
-          <GenerationSettings settings={settings} setSettings={setSettings} />
+          {/* Only show generation settings in initial state */}
+          {appState === AppState.INITIAL && (
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              {/* Generation settings like stack and model */}
+              <GenerationSettings settings={settings} setSettings={setSettings} />
+            </div>
+          )}
 
           {/* Show auto updated message when older models are choosen */}
-          {showBetterModelMessage && <DeprecationMessage />}
+          {showBetterModelMessage && (
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <DeprecationMessage />
+            </div>
+          )}
 
           {/* Show tip link until coding is complete */}
           {/* {appState !== AppState.CODE_READY && <TipLink />} */}
 
-          {IS_RUNNING_ON_CLOUD && !settings.openAiApiKey && <OnboardingNote />}
-
-          {appState === AppState.INITIAL && (
-            <GenerateFromText doCreateFromText={doCreateFromText} />
+          {IS_RUNNING_ON_CLOUD && !settings.openAiApiKey && (
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <OnboardingNote />
+            </div>
           )}
+
+          {/* TODO: Temporarily commented out - focusing on image-to-code functionality */}
+          {/* {appState === AppState.INITIAL && (
+            <GenerateFromText doCreateFromText={doCreateFromText} />
+          )} */}
 
           {/* Rest of the sidebar when we're not in the initial state */}
           {(appState === AppState.CODING ||
             appState === AppState.CODE_READY) && (
-            <Sidebar
-              showSelectAndEditFeature={showSelectAndEditFeature}
-              doUpdate={doUpdate}
-              regenerate={regenerate}
-              cancelCodeGeneration={cancelCodeGeneration}
-            />
+            <div className="flex-1 flex flex-col min-h-0">
+              <Sidebar
+                showSelectAndEditFeature={showSelectAndEditFeature}
+                doUpdate={doUpdate}
+                regenerate={regenerate}
+                cancelCodeGeneration={cancelCodeGeneration}
+              />
+            </div>
           )}
         </div>
       </div>
 
-      <main className="py-2 lg:pl-96">
+      <main 
+        className={activeTab === "split" ? "" : ""}
+        style={{ paddingLeft: activeTab === "split" ? "0" : `${sidebarWidth}px` }}
+      >
         {appState === AppState.INITIAL && (
           <StartPane
             doCreate={doCreate}
-            importFromCode={importFromCode}
-            settings={settings}
           />
         )}
 
         {(appState === AppState.CODING || appState === AppState.CODE_READY) && (
-          <PreviewPane doUpdate={doUpdate} reset={reset} settings={settings} />
+          <PreviewPane 
+            doUpdate={doUpdate} 
+            settings={settings} 
+            onTabChange={handleTabChange}
+          />
         )}
       </main>
     </div>

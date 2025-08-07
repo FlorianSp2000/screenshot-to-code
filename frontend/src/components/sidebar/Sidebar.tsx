@@ -1,17 +1,16 @@
-import classNames from "classnames";
 import { useAppStore } from "../../store/app-store";
 import { useProjectStore } from "../../store/project-store";
 import { AppState } from "../../types";
-import CodePreview from "../preview/CodePreview";
-import KeyboardShortcutBadge from "../core/KeyboardShortcutBadge";
+// import CodePreview from "../preview/CodePreview";
 // import TipLink from "../messages/TipLink";
 import SelectAndEditModeToggleButton from "../select-and-edit/SelectAndEditModeToggleButton";
-import { Button } from "../ui/button";
+// import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { useEffect, useRef, useState, useCallback } from "react";
-import HistoryDisplay from "../history/HistoryDisplay";
-import Variants from "../variants/Variants";
+// import HistoryDisplay from "../history/HistoryDisplay";
+// import Variants from "../variants/Variants";
 import UpdateImageUpload, { UpdateImagePreview } from "../UpdateImageUpload";
+import { FaArrowUp, FaUser, FaRobot, FaCode } from "react-icons/fa";
 
 interface SidebarProps {
   showSelectAndEditFeature: boolean;
@@ -23,10 +22,11 @@ interface SidebarProps {
 function Sidebar({
   showSelectAndEditFeature,
   doUpdate,
-  regenerate,
-  cancelCodeGeneration,
+  // regenerate,
+  // cancelCodeGeneration,
 }: SidebarProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
   const [isErrorExpanded, setIsErrorExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -60,13 +60,13 @@ function Sidebar({
       }
     }
   }, [updateImages, setUpdateImages]);
+// referenceImages, 
+  const { inputMode, head, commits, setHead, updateSelectedVariantIndex } = useProjectStore();
 
-  const { inputMode, referenceImages, head, commits } = useProjectStore();
-
-  const viewedCode =
-    head && commits[head]
-      ? commits[head].variants[commits[head].selectedVariantIndex].code
-      : "";
+  // const viewedCode =
+  //   head && commits[head]
+  //     ? commits[head].variants[commits[head].selectedVariantIndex].code
+  //     : "";
 
   // Check if the currently selected variant is complete
   const isSelectedVariantComplete =
@@ -103,166 +103,255 @@ function Sidebar({
     setIsErrorExpanded(false);
   }, [head, commits[head || ""]?.selectedVariantIndex]);
 
+  // Create conversational history from commits
+  const createConversationalHistory = () => {
+    const history: Array<{
+      type: 'user' | 'system';
+      content: string;
+      timestamp?: Date;
+      commitId?: string;
+      variantIndex?: number;
+      isActive?: boolean;
+      hasArtifact?: boolean;
+    }> = [];
+
+    let versionCounter = 0;
+
+    // Walk through commits in chronological order (oldest first)
+    const sortedCommits = Object.entries(commits).sort((a, b) => {
+      // Sort by commit hash/ID to maintain chronological order
+      return a[0].localeCompare(b[0]);
+    });
+
+    sortedCommits.forEach(([commitId, commit]) => {
+      // Add user message based on commit type
+      if (commit.type === 'ai_create') {
+        history.push({
+          type: 'user',
+          content: 'Create this UI from the provided image',
+          timestamp: new Date(),
+        });
+      } else if (commit.type === 'ai_edit' && commit.inputs) {
+        // For edit commits, show the actual user input
+        const inputs = commit.inputs as any;
+        const userText = typeof inputs === 'string' ? inputs : 
+                        inputs?.text || 'Modify the design';
+        history.push({
+          type: 'user',
+          content: userText,
+          timestamp: new Date(),
+        });
+      }
+
+      // Add system responses (only for completed variants)
+      if (commit.variants && commit.variants.length > 0) {
+        commit.variants.forEach((variant, index) => {
+          if (variant.code || variant.status === 'complete') {
+            versionCounter++;
+            history.push({
+              type: 'system',
+              content: `Version ${versionCounter}`,
+              timestamp: new Date(),
+              commitId,
+              variantIndex: index,
+              isActive: head === commitId && commit.selectedVariantIndex === index,
+              hasArtifact: true,
+            });
+          }
+        });
+      }
+    });
+
+    return history;
+  };
+
+  const conversationHistory = createConversationalHistory();
+
+  // Auto-scroll to bottom when new messages are added
+  useEffect(() => {
+    if (historyScrollRef.current) {
+      historyScrollRef.current.scrollTop = historyScrollRef.current.scrollHeight;
+    }
+  }, [conversationHistory.length, appState]);
+
   return (
-    <>
-      <Variants />
-
-      {/* Show code preview when coding and the selected variant is not complete */}
-      {appState === AppState.CODING && !isSelectedVariantComplete && (
-        <div className="flex flex-col">
-          {/* Speed disclaimer for video mode */}
-          {inputMode === "video" && (
-            <div
-              className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700
-            p-2 text-xs mb-4 mt-1"
-            >
-              Code generation from videos can take 3-4 minutes. We do multiple
-              passes to get the best result. Please be patient.
+    <div className="flex flex-col h-full">
+      {/* Conversation History - Scrollable */}
+      <div 
+        ref={historyScrollRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
+      >
+        {conversationHistory.map((message, index) => (
+          <div key={index} className="flex items-start space-x-3">
+            {/* Avatar */}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm ${
+              message.type === 'user' ? 'bg-blue-500' : 'bg-gray-600'
+            }`}>
+              {message.type === 'user' ? <FaUser size={12} /> : <FaRobot size={12} />}
             </div>
-          )}
-
-          <CodePreview code={viewedCode} />
-
-          <div className="flex w-full">
-            <Button
-              onClick={cancelCodeGeneration}
-              className="w-full dark:text-white dark:bg-gray-700"
-            >
-              Cancel All Generations
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Show error message when selected option has an error */}
-      {isSelectedVariantError && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-2">
-          <div className="text-red-800 text-sm">
-            <div className="font-medium mb-1">
-              This option failed to generate because
-            </div>
-            {selectedVariantErrorMessage && (
-              <div className="mb-2">
-                <div className="text-red-700 bg-red-100 border border-red-300 rounded px-2 py-1 text-xs font-mono break-words">
-                  {selectedVariantErrorMessage.length > 200 && !isErrorExpanded
-                    ? `${selectedVariantErrorMessage.slice(0, 200)}...`
-                    : selectedVariantErrorMessage}
-                </div>
-                {selectedVariantErrorMessage.length > 200 && (
-                  <button
-                    onClick={() => setIsErrorExpanded(!isErrorExpanded)}
-                    className="text-red-600 text-xs underline mt-1 hover:text-red-800"
-                  >
-                    {isErrorExpanded ? "Show less" : "Show more"}
-                  </button>
-                )}
-              </div>
-            )}
-            <div>Switch to another option above to make updates.</div>
-          </div>
-        </div>
-      )}
-
-      {/* Show update UI when app state is ready OR the selected variant is complete (but not errored) */}
-      {(appState === AppState.CODE_READY || isSelectedVariantComplete) &&
-        !isSelectedVariantError && (
-          <div
-            onDragEnter={() => setIsDragging(true)}
-            onDragLeave={(e) => {
-              // Only set to false if we're leaving the container entirely
-              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                setIsDragging(false);
-              }
-            }}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-          >
-            <div className="grid w-full gap-2 relative">
-              <UpdateImagePreview 
-                updateImages={updateImages} 
-                setUpdateImages={setUpdateImages} 
-              />
-              <Textarea
-                ref={textareaRef}
-                placeholder="Tell the AI what to change..."
-                onChange={(e) => setUpdateInstruction(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    doUpdate(updateInstruction);
-                  }
-                }}
-                value={updateInstruction}
-              />
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => doUpdate(updateInstruction)}
-                  className="dark:text-white dark:bg-gray-700 update-btn flex-1"
+            
+            {/* Message Content */}
+            <div className="flex-1 min-w-0">
+              {message.type === 'system' && message.commitId && message.hasArtifact ? (
+                <div 
+                  className={`inline-block px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                    message.isActive 
+                      ? 'bg-blue-100 text-blue-800 border border-blue-300' 
+                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                  }`}
+                  onClick={() => {
+                    if (message.commitId && message.variantIndex !== undefined) {
+                      // Switch to the selected commit and variant
+                      setHead(message.commitId);
+                      updateSelectedVariantIndex(message.commitId, message.variantIndex);
+                    }
+                  }}
                 >
-                  Update <KeyboardShortcutBadge letter="enter" />
-                </Button>
-                <UpdateImageUpload 
-                  updateImages={updateImages} 
-                  setUpdateImages={setUpdateImages} 
-                />
-              </div>
-              
-              {/* Drag overlay that covers the entire update area */}
-              {isDragging && (
-                <div className="absolute inset-0 bg-blue-50/90 dark:bg-gray-800/90 border-2 border-dashed border-blue-400 dark:border-blue-600 rounded-md flex items-center justify-center pointer-events-none z-10">
-                  <p className="text-blue-600 dark:text-blue-400 font-medium">Drop images here</p>
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <FaCode size={12} />
+                    {message.content}
+                  </div>
+                  {message.isActive && (
+                    <div className="text-xs text-blue-600 mt-1">Current Version</div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-200 rounded-lg px-3 py-2">
+                  <div className="text-sm text-gray-900">{message.content}</div>
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-end gap-x-2 mt-2">
-              <Button
-                onClick={regenerate}
-                className="flex items-center gap-x-2 dark:text-white dark:bg-gray-700 regenerate-btn"
-              >
-                🔄 Regenerate
-              </Button>
-              {showSelectAndEditFeature && <SelectAndEditModeToggleButton />}
+          </div>
+        ))}
+
+        {/* Show current generation status */}
+        {appState === AppState.CODING && !isSelectedVariantComplete && (
+          <div className="flex items-start space-x-3">
+            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm">
+              <FaRobot size={12} />
             </div>
-            {/* <div className="flex justify-end items-center mt-2">
-            <TipLink />
-          </div> */}
+            <div className="flex-1">
+              <div className="bg-gray-100 border border-gray-200 rounded-lg px-3 py-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <div className="text-sm text-gray-700">Generating...</div>
+                </div>
+                {inputMode === "video" && (
+                  <div className="text-xs text-gray-500 mt-2">
+                    Video processing can take 3-4 minutes
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
-      {/* Reference image display */}
-      <div className="flex gap-x-2 mt-2">
-        {referenceImages.length > 0 && (
-          <div className="flex flex-col">
-            <div
-              className={classNames({
-                "scanning relative": appState === AppState.CODING,
-              })}
-            >
-              {inputMode === "image" && (
-                <img
-                  className="w-[340px] border border-gray-200 rounded-md"
-                  src={referenceImages[0]}
-                  alt="Reference"
-                />
-              )}
-              {inputMode === "video" && (
-                <video
-                  muted
-                  autoPlay
-                  loop
-                  className="w-[340px] border border-gray-200 rounded-md"
-                  src={referenceImages[0]}
-                />
-              )}
+        {/* Show error state */}
+        {isSelectedVariantError && (
+          <div className="flex items-start space-x-3">
+            <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-sm">
+              <FaRobot size={12} />
             </div>
-            <div className="text-gray-400 uppercase text-sm text-center mt-1">
-              {inputMode === "video" ? "Original Video" : "Original Screenshot"}
+            <div className="flex-1">
+              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <div className="text-sm text-red-800 font-medium mb-1">
+                  Generation failed
+                </div>
+                {selectedVariantErrorMessage && (
+                  <div className="text-xs text-red-700 bg-red-100 border border-red-300 rounded px-2 py-1 font-mono break-words">
+                    {selectedVariantErrorMessage.length > 100 && !isErrorExpanded
+                      ? `${selectedVariantErrorMessage.slice(0, 100)}...`
+                      : selectedVariantErrorMessage}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      <HistoryDisplay shouldDisableReverts={appState === AppState.CODING} />
-    </>
+      {/* Bottom Input Area */}
+      <div className="flex-none p-4 border-t border-gray-200 dark:border-gray-700">
+        <div 
+          className="relative"
+          onDragEnter={() => setIsDragging(true)}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setIsDragging(false);
+            }
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
+        >
+          {/* Image Preview */}
+          <UpdateImagePreview 
+            updateImages={updateImages} 
+            setUpdateImages={setUpdateImages} 
+          />
+          
+          {/* Input Field */}
+          <div className="bg-white dark:bg-gray-950 rounded-lg p-3 relative border border-gray-400 dark:border-gray-600">
+            <Textarea
+              ref={textareaRef}
+              placeholder="paste image or describe your ui here..."
+              onChange={(e) => setUpdateInstruction(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (updateInstruction.trim()) {
+                    doUpdate(updateInstruction);
+                  }
+                }
+              }}
+              value={updateInstruction}
+              className="flex w-full rounded-md border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-0 focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[40px] resize-none overflow-hidden"
+              style={{ height: 'auto', minHeight: '40px' }}
+            />
+            
+            {/* Input Controls - Separated below textarea */}
+            <div className="flex justify-between items-center mt-2">
+              <div className="flex items-center">
+                <p></p>
+              </div>
+              <div className="flex space-x-2 items-center">
+                <UpdateImageUpload 
+                  updateImages={updateImages} 
+                  setUpdateImages={setUpdateImages} 
+                />
+                <div 
+                  className={`p-2 rounded-full transition-colors ${
+                    updateInstruction.trim() 
+                      ? "bg-black hover:bg-gray-800 cursor-pointer" 
+                      : "cursor-not-allowed bg-black/40"
+                  }`}
+                  onClick={() => {
+                    if (updateInstruction.trim()) {
+                      doUpdate(updateInstruction);
+                    }
+                  }}
+                >
+                  <FaArrowUp className="h-4 w-4 text-white" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Drag Overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 bg-blue-50/90 border-2 border-dashed border-blue-400 rounded-2xl flex items-center justify-center pointer-events-none z-10">
+              <p className="text-blue-600 font-medium">Drop images here</p>
+            </div>
+          )}
+        </div>
+
+        {/* Select and Edit Toggle */}
+        {showSelectAndEditFeature && (
+          <div className="flex justify-center mt-3">
+            <SelectAndEditModeToggleButton />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -1,25 +1,27 @@
 import React from "react";
 import ImageUpload from "../ImageUpload";
-import { UrlInputSection } from "../UrlInputSection";
-import ImportCodeSection from "../ImportCodeSection";
-import { Settings } from "../../types";
-import { Stack } from "../../lib/stacks";
+// import { UrlInputSection } from "../UrlInputSection";
+// import ImportCodeSection from "../ImportCodeSection";
+// import { Settings } from "../../types";
+// import { Stack } from "../../lib/stacks";
 
 interface Props {
   doCreate: (images: string[], inputMode: "image" | "video") => void;
-  importFromCode: (code: string, stack: Stack) => void;
-  settings: Settings;
+  // TODO: Temporarily commented out - focusing on image-to-code functionality
+  // importFromCode: (code: string, stack: Stack) => void;
+  // settings: Settings;
 }
 
-const StartPane: React.FC<Props> = ({ doCreate, importFromCode, settings }) => {
+const StartPane: React.FC<Props> = ({ doCreate }) => {
   return (
     <div className="flex flex-col justify-center items-center gap-y-10">
       <ImageUpload setReferenceImages={doCreate} />
-      <UrlInputSection
+      {/* TODO: Temporarily commented out - focusing on image-to-code functionality */}
+      {/* <UrlInputSection
         doCreate={doCreate}
         screenshotOneApiKey={settings.screenshotOneApiKey}
       />
-      <ImportCodeSection importFromCode={importFromCode} />
+      <ImportCodeSection importFromCode={importFromCode} /> */}
     </div>
   );
 };

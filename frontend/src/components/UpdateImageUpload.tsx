@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { toast } from "react-hot-toast";
 import { Cross2Icon, ImageIcon } from "@radix-ui/react-icons";
-import { Button } from "./ui/button";
+// import { Button } from "./ui/button";
 
 // Helper function to convert file to data URL
 function fileToDataURL(file: File): Promise<string> {
@@ -82,20 +82,14 @@ function UpdateImageUpload({ updateImages, setUpdateImages }: Props) {
         className="hidden"
       />
       
-      {/* Image button styled to match other buttons */}
-      <Button
-        type="button"
-        variant="outline"
-        size="default"
+      {/* Image button styled to match the design */}
+      <div 
+        className="flex items-center p-2 rounded-full hover:bg-gray-200 cursor-pointer"
         onClick={handleButtonClick}
-        className={`dark:text-white dark:bg-gray-700 h-10 px-3 ${updateImages.length > 0 ? 'border-blue-500' : ''} relative`}
         title={updateImages.length > 0 ? "Add more images" : "Add reference images"}
       >
         <ImageIcon className="h-4 w-4" />
-        {updateImages.length > 0 && (
-          <span className="ml-2 text-sm">{updateImages.length}</span>
-        )}
-      </Button>
+      </div>
       
     </div>
   );

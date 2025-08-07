@@ -5,7 +5,7 @@ import EditPopup from "../select-and-edit/EditPopup";
 
 interface Props {
   code: string;
-  device: "mobile" | "desktop";
+  device: "mobile" | "tablet" | "desktop";
   doUpdate: (updateInstruction: string, selectedElement?: HTMLElement) => void;
 }
 
@@ -28,7 +28,7 @@ function PreviewComponent({ code, device, doUpdate }: Props) {
       if (!wrapper || !iframe) return;
 
       const viewportWidth = wrapper.clientWidth;
-      const baseWidth = device === "desktop" ? 1440 : 375;
+      const baseWidth = device === "desktop" ? 1440 : device === "tablet" ? 768 : 375;
       const scaleValue = Math.min(1, viewportWidth / baseWidth);
 
       setScale(scaleValue);
@@ -62,22 +62,24 @@ function PreviewComponent({ code, device, doUpdate }: Props) {
   }, [throttledCode]);
 
   return (
-    <div className="flex justify-center mr-4">
+    <div className="flex justify-center">
       <div
         ref={wrapperRef}
-        className="overflow-y-auto overflow-x-hidden w-full"
+        className="overflow-hidden w-full"
       >
         <iframe
           id={`preview-${device}`}
           ref={iframeRef}
           title="Preview"
           className={classNames(
-            "border-[4px] border-black rounded-[20px] shadow-lg mx-auto",
+            "rounded-[20px] shadow-lg mx-auto",
             {
               "w-[1440px] h-[900px]": device === "desktop",
+              "w-[768px] h-[1024px]": device === "tablet",
               "w-[375px] h-[812px]": device === "mobile",
             }
           )}
+          style={{ border: '0 solid #e5e7eb' }}
         ></iframe>
         <EditPopup
           event={clickEvent}
