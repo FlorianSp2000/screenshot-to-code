@@ -1,7 +1,10 @@
 .aider*
 
-# Project-related files
+# Node.js
+node_modules/
+package-lock.json
 
+# Project-related files
 # Run logs
 backend/run_logs/*
 
