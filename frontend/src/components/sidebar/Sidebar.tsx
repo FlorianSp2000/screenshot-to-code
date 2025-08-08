@@ -1,16 +1,10 @@
 import { useAppStore } from "../../store/app-store";
-import { useProjectStore } from "../../store/project-store";
-import { AppState } from "../../types";
-// import CodePreview from "../preview/CodePreview";
-// import TipLink from "../messages/TipLink";
 import SelectAndEditModeToggleButton from "../select-and-edit/SelectAndEditModeToggleButton";
-// import { Button } from "../ui/button";
-import { Textarea } from "../ui/textarea";
 import { useEffect, useRef, useState, useCallback } from "react";
-// import HistoryDisplay from "../history/HistoryDisplay";
-// import Variants from "../variants/Variants";
 import UpdateImageUpload, { UpdateImagePreview } from "../UpdateImageUpload";
-import { FaArrowUp, FaUser, FaRobot, FaCode } from "react-icons/fa";
+import { FaArrowUp } from "react-icons/fa";
+import ConversationView from "../conversation/ConversationView";
+import { useConversationStore } from "../../store/conversation-store";
 
 interface SidebarProps {
   showSelectAndEditFeature: boolean;
@@ -19,18 +13,30 @@ interface SidebarProps {
   cancelCodeGeneration: () => void;
 }
 
+
 function Sidebar({
   showSelectAndEditFeature,
   doUpdate,
-  // regenerate,
-  // cancelCodeGeneration,
 }: SidebarProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const historyScrollRef = useRef<HTMLDivElement>(null);
-  const [isErrorExpanded, setIsErrorExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const { appState, updateInstruction, setUpdateInstruction, updateImages, setUpdateImages } = useAppStore();
+  const { updateInstruction, setUpdateInstruction, updateImages, setUpdateImages } = useAppStore();
+  const { messages } = useConversationStore();
+
+  // Auto-resize textarea function
+  const adjustTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.max(48, textareaRef.current.scrollHeight)}px`;
+    }
+  }, []);
+
+  // Adjust height when text changes
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [updateInstruction, adjustTextareaHeight]);
 
   // Helper function to convert file to data URL
   const fileToDataURL = (file: File): Promise<string> => {
@@ -60,239 +66,64 @@ function Sidebar({
       }
     }
   }, [updateImages, setUpdateImages]);
-// referenceImages, 
-  const { inputMode, head, commits, setHead, updateSelectedVariantIndex, referenceImages } = useProjectStore();
-
-  // const viewedCode =
-  //   head && commits[head]
-  //     ? commits[head].variants[commits[head].selectedVariantIndex].code
-  //     : "";
-
-  // Check if the currently selected variant is complete
-  const isSelectedVariantComplete =
-    head &&
-    commits[head] &&
-    commits[head].variants[commits[head].selectedVariantIndex].status ===
-      "complete";
-
-  // Check if the currently selected variant has an error
-  const isSelectedVariantError =
-    head &&
-    commits[head] &&
-    commits[head].variants[commits[head].selectedVariantIndex].status ===
-      "error";
-
-  // Get the error message from the selected variant
-  const selectedVariantErrorMessage =
-    head &&
-    commits[head] &&
-    commits[head].variants[commits[head].selectedVariantIndex].errorMessage;
-
-  // Focus on the update instruction textarea when a variant is complete
-  useEffect(() => {
-    if (
-      (appState === AppState.CODE_READY || isSelectedVariantComplete) &&
-      textareaRef.current
-    ) {
-      textareaRef.current.focus();
-    }
-  }, [appState, isSelectedVariantComplete]);
-
-  // Reset error expanded state when variant changes
-  useEffect(() => {
-    setIsErrorExpanded(false);
-  }, [head, commits[head || ""]?.selectedVariantIndex]);
-
-  // Create conversational history from commits
-  const createConversationalHistory = () => {
-    const history: Array<{
-      type: 'user' | 'system';
-      content: string;
-      timestamp?: Date;
-      commitId?: string;
-      variantIndex?: number;
-      isActive?: boolean;
-      hasArtifact?: boolean;
-      images?: string[];
-    }> = [];
-
-    let versionCounter = 0;
-
-    // Walk through commits in chronological order (oldest first)
-    const sortedCommits = Object.entries(commits).sort((a, b) => {
-      // Sort by commit hash/ID to maintain chronological order
-      return a[0].localeCompare(b[0]);
-    });
-
-    sortedCommits.forEach(([commitId, commit]) => {
-      // Add user message based on commit type
-      if (commit.type === 'ai_create') {
-        history.push({
-          type: 'user',
-          content: 'Create this UI from the provided image',
-          timestamp: new Date(),
-          images: referenceImages, // Add reference images for initial create
-        });
-      } else if (commit.type === 'ai_edit' && commit.inputs) {
-        // For edit commits, show the actual user input
-        const inputs = commit.inputs as any;
-        const userText = typeof inputs === 'string' ? inputs : 
-                        inputs?.text || 'Modify the design';
-        const userImages = typeof inputs === 'object' && inputs?.images ? inputs.images : [];
-        history.push({
-          type: 'user',
-          content: userText,
-          timestamp: new Date(),
-          images: userImages, // Add any images from the edit inputs
-        });
-      }
-
-      // Add system responses (only for completed variants)
-      if (commit.variants && commit.variants.length > 0) {
-        commit.variants.forEach((variant, index) => {
-          if (variant.code || variant.status === 'complete') {
-            versionCounter++;
-            history.push({
-              type: 'system',
-              content: `Version ${versionCounter}`,
-              timestamp: new Date(),
-              commitId,
-              variantIndex: index,
-              isActive: head === commitId && commit.selectedVariantIndex === index,
-              hasArtifact: true,
-            });
-          }
-        });
-      }
-    });
-
-    return history;
-  };
-
-  const conversationHistory = createConversationalHistory();
 
   // Auto-scroll to bottom when new messages are added
   useEffect(() => {
     if (historyScrollRef.current) {
-      historyScrollRef.current.scrollTop = historyScrollRef.current.scrollHeight;
+      const scrollElement = historyScrollRef.current;
+      // Use setTimeout to ensure DOM has updated
+      setTimeout(() => {
+        scrollElement.scrollTop = scrollElement.scrollHeight;
+      }, 10);
     }
-  }, [conversationHistory.length, appState]);
+  }, [messages.length]); // Scroll when new messages are added
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Conversation History - Scrollable */}
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 to-slate-100/50">
+      {/* Custom Styles */}
+      <style>{`
+        .glassmorphism {
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .glassmorphism-dark {
+          background: rgba(30, 41, 59, 0.8);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .thread-item {
+          transition: all 0.2s ease;
+        }
+        
+        .thread-item:hover {
+          transform: translateY(-1px);
+        }
+        
+        @keyframes thread-expand {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .thread-responses {
+          animation: thread-expand 0.3s ease-out;
+        }
+      `}</style>
+
+      {/* Conversation History - Clean & Simple */}
       <div 
         ref={historyScrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
+        className="flex-1 overflow-y-auto px-6 py-6"
       >
-        {conversationHistory.map((message, index) => (
-          <div key={index} className="flex items-start space-x-3">
-            {/* Avatar */}
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm ${
-              message.type === 'user' ? 'bg-blue-500' : 'bg-gray-600'
-            }`}>
-              {message.type === 'user' ? <FaUser size={12} /> : <FaRobot size={12} />}
-            </div>
-            
-            {/* Message Content */}
-            <div className="flex-1 min-w-0">
-              {message.type === 'user' ? (
-                <div className="bg-white border border-gray-200 rounded-lg px-3 py-2">
-                  <div className="text-sm text-gray-900">{message.content}</div>
-                  {/* Show images below user message if they exist */}
-                  {message.images && message.images.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {message.images.map((image, imgIndex) => (
-                        <img
-                          key={imgIndex}
-                          src={image}
-                          alt={`Reference ${imgIndex + 1}`}
-                          className="max-w-32 max-h-24 object-cover rounded border border-gray-200 shadow-sm"
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : message.type === 'system' && message.commitId && message.hasArtifact ? (
-                <div 
-                  className={`inline-block px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                    message.isActive 
-                      ? 'bg-blue-100 text-blue-800 border border-blue-300' 
-                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                  }`}
-                  onClick={() => {
-                    if (message.commitId && message.variantIndex !== undefined) {
-                      // Switch to the selected commit and variant
-                      setHead(message.commitId);
-                      updateSelectedVariantIndex(message.commitId, message.variantIndex);
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <FaCode size={12} />
-                    {message.content}
-                  </div>
-                  {message.isActive && (
-                    <div className="text-xs text-blue-600 mt-1">Current Version</div>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-white border border-gray-200 rounded-lg px-3 py-2">
-                  <div className="text-sm text-gray-900">{message.content}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {/* Show current generation status */}
-        {appState === AppState.CODING && !isSelectedVariantComplete && (
-          <div className="flex items-start space-x-3">
-            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-white text-sm">
-              <FaRobot size={12} />
-            </div>
-            <div className="flex-1">
-              <div className="bg-gray-100 border border-gray-200 rounded-lg px-3 py-2">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                  <div className="text-sm text-gray-700">Generating...</div>
-                </div>
-                {inputMode === "video" && (
-                  <div className="text-xs text-gray-500 mt-2">
-                    Video processing can take 3-4 minutes
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Show error state */}
-        {isSelectedVariantError && (
-          <div className="flex items-start space-x-3">
-            <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-sm">
-              <FaRobot size={12} />
-            </div>
-            <div className="flex-1">
-              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                <div className="text-sm text-red-800 font-medium mb-1">
-                  Generation failed
-                </div>
-                {selectedVariantErrorMessage && (
-                  <div className="text-xs text-red-700 bg-red-100 border border-red-300 rounded px-2 py-1 font-mono break-words">
-                    {selectedVariantErrorMessage.length > 100 && !isErrorExpanded
-                      ? `${selectedVariantErrorMessage.slice(0, 100)}...`
-                      : selectedVariantErrorMessage}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <ConversationView />
       </div>
 
       {/* Bottom Input Area */}
-      <div className="flex-none p-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex-none p-6 border-t border-white/30">
         <div 
           className="relative"
           onDragEnter={() => setIsDragging(true)}
@@ -311,11 +142,15 @@ function Sidebar({
           />
           
           {/* Input Field */}
-          <div className="bg-white dark:bg-gray-950 rounded-lg p-3 relative border border-gray-400 dark:border-gray-600">
-            <Textarea
+          <div className="glassmorphism rounded-2xl p-4 relative hover:shadow-lg focus-within:shadow-xl transition-all duration-200">
+            <textarea
               ref={textareaRef}
-              placeholder="paste image or describe your ui here..."
-              onChange={(e) => setUpdateInstruction(e.target.value)}
+              placeholder="Describe how you'd like to modify the design..."
+              onChange={(e) => {
+                setUpdateInstruction(e.target.value);
+                // Trigger resize on next frame to ensure proper height calculation
+                setTimeout(adjustTextareaHeight, 0);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -324,50 +159,59 @@ function Sidebar({
                   }
                 }
               }}
+              onInput={adjustTextareaHeight}
               value={updateInstruction}
-              className="flex w-full rounded-md border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-0 focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[40px] resize-none overflow-hidden"
-              style={{ height: 'auto', minHeight: '40px' }}
+              className="w-full bg-transparent border-0 resize-none text-slate-800 placeholder:text-slate-500 focus:outline-none focus:ring-0 text-sm leading-relaxed overflow-hidden"
+              style={{ 
+                minHeight: '48px',
+                maxHeight: '200px' // Prevent it from getting too large
+              }}
+              rows={1}
             />
             
-            {/* Input Controls - Separated below textarea */}
-            <div className="flex justify-between items-center mt-2">
+            {/* Input Controls */}
+            <div className="flex justify-between items-center mt-3">
               <div className="flex items-center">
-                <p></p>
-              </div>
-              <div className="flex space-x-2 items-center">
                 <UpdateImageUpload 
                   updateImages={updateImages} 
                   setUpdateImages={setUpdateImages} 
                 />
-                <div 
-                  className={`p-2 rounded-full transition-colors ${
-                    updateInstruction.trim() 
-                      ? "bg-black hover:bg-gray-800 cursor-pointer" 
-                      : "cursor-not-allowed bg-black/40"
-                  }`}
-                  onClick={() => {
-                    if (updateInstruction.trim()) {
-                      doUpdate(updateInstruction);
-                    }
-                  }}
-                >
-                  <FaArrowUp className="h-4 w-4 text-white" />
-                </div>
+              </div>
+              <div 
+                className={`p-3 rounded-full transition-all duration-200 ${
+                  updateInstruction.trim() 
+                    ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 cursor-pointer shadow-lg hover:shadow-xl hover:scale-105" 
+                    : "cursor-not-allowed bg-slate-300"
+                }`}
+                onClick={() => {
+                  if (updateInstruction.trim()) {
+                    doUpdate(updateInstruction);
+                  }
+                }}
+              >
+                <FaArrowUp className="h-4 w-4 text-white" />
               </div>
             </div>
           </div>
 
           {/* Drag Overlay */}
           {isDragging && (
-            <div className="absolute inset-0 bg-blue-50/90 border-2 border-dashed border-blue-400 rounded-2xl flex items-center justify-center pointer-events-none z-10">
-              <p className="text-blue-600 font-medium">Drop images here</p>
+            <div className="absolute inset-0 glassmorphism border-2 border-dashed border-blue-400 rounded-2xl flex items-center justify-center pointer-events-none z-10">
+              <div className="text-center">
+                <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                </div>
+                <p className="text-blue-700 font-medium">Drop images here</p>
+              </div>
             </div>
           )}
         </div>
 
         {/* Select and Edit Toggle */}
         {showSelectAndEditFeature && (
-          <div className="flex justify-center mt-3">
+          <div className="flex justify-center mt-4">
             <SelectAndEditModeToggleButton />
           </div>
         )}

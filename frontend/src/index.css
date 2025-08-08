@@ -3,30 +3,102 @@
 @tailwind utilities;
 
 /* Image Scanning animation */
+.scanning {
+  position: relative;
+  display: inline-block;
+}
+
 .scanning::after {
   content: "";
   position: absolute;
-  top: 0px;
-  left: 0px;
-  width: 5px;
+  top: 0;
+  left: 0;
+  width: 3px;
   height: 100%;
-  background-image: linear-gradient(
+  background: linear-gradient(
     to right,
-    rgba(19, 161, 14, 0.2),
-    /* Darker matrix green with full transparency */ rgba(19, 161, 14, 0.8)
-      /* The same green with 80% opacity */
+    rgba(34, 197, 94, 0.2),
+    rgba(34, 197, 94, 1),
+    rgba(34, 197, 94, 0.2)
   );
-  animation: scanning 3s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+  animation: scanning 2.5s ease-in-out infinite;
+  z-index: 50;
+  pointer-events: none;
 }
 
 @keyframes scanning {
-  0%,
+  0% {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
   100% {
-    transform: translateX(0px);
+    transform: translateX(calc(100% + 10px));
+    opacity: 0;
+  }
+}
+
+/* Counting up animation for loading dots */
+.counting-animation {
+  animation: count-up 0.9s ease-in-out infinite;
+}
+
+@keyframes count-up {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.3;
   }
   50% {
-    transform: translateX(340px);
+    transform: scale(1.2);
+    opacity: 1;
   }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+}
+
+/* Typing animation for chat messages */
+.typing-cursor {
+  display: inline-block;
+  background-color: currentColor;
+  width: 2px;
+  height: 1.2em;
+  margin-left: 2px;
+  animation: blink 1s infinite;
+  vertical-align: text-top;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Slide in animation for new messages */
+.message-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Typing effect container */
+.typing-text {
+  display: inline;
 }
 
 @layer base {

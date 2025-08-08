@@ -10,9 +10,10 @@ interface Props {
   code: string;
   setCode: React.Dispatch<React.SetStateAction<string>>;
   settings: Settings;
+  isJson?: boolean;
 }
 
-function CodeTab({ code, setCode, settings }: Props) {
+function CodeTab({ code, setCode, settings, isJson = false }: Props) {
   const copyCode = useCallback(() => {
     copy(code);
     toast.success("Copied to clipboard");
@@ -57,23 +58,31 @@ function CodeTab({ code, setCode, settings }: Props) {
     <div className="relative">
       <div className="flex justify-start items-center px-4 mb-2">
         <span
-          title="Copy Code"
+          title={isJson ? "Copy JSON" : "Copy Code"}
           className="bg-black text-white flex items-center justify-center hover:text-black hover:bg-gray-100 cursor-pointer rounded-lg text-sm p-2.5"
           onClick={copyCode}
         >
-          Copy Code <FaCopy className="ml-2" />
+          {isJson ? "Copy JSON" : "Copy Code"} <FaCopy className="ml-2" />
         </span>
-        <Button
-          onClick={doOpenInCodepenio}
-          className="bg-gray-100 text-black ml-2 py-2 px-4 border border-black rounded-md hover:bg-gray-400 focus:outline-none"
-        >
-          Open in{" "}
-          <img
-            src="https://assets.codepen.io/t-1/codepen-logo.svg"
-            alt="codepen.io"
-            className="h-4 ml-1"
-          />
-        </Button>
+        {!isJson && (
+          <Button
+            onClick={doOpenInCodepenio}
+            className="bg-gray-100 text-black ml-2 py-2 px-4 border border-black rounded-md hover:bg-gray-400 focus:outline-none"
+          >
+            Open in{" "}
+            <img
+              src="https://assets.codepen.io/t-1/codepen-logo.svg"
+              alt="codepen.io"
+              className="h-4 ml-1"
+            />
+          </Button>
+        )}
+        {isJson && (
+          <span className="ml-3 text-sm text-gray-600 flex items-center">
+            <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
+            Viewing JSON Structure
+          </span>
+        )}
       </div>
       <CodeMirror
         code={code}

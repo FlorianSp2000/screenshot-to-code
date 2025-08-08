@@ -217,6 +217,7 @@ class ExtractedParams:
     prompt: PromptContent
     history: List[Dict[str, Any]]
     is_imported_from_code: bool
+    is_extraction_mode: bool
 
 
 class ParameterExtractionStage:
@@ -272,14 +273,22 @@ class ParameterExtractionStage:
             raise ValueError(f"Invalid generation type: {generation_type}")
         generation_type = cast(Literal["create", "update"], generation_type)
 
-        # Extract prompt content
+        # Extract prompt content including additional files
         prompt = params.get("prompt", {"text": "", "images": []})
+        # Ensure additionalFiles is included in prompt if it exists in params
+        if "additionalFiles" in params and params["additionalFiles"]:
+            prompt["additionalFiles"] = params["additionalFiles"]
+        elif "additionalFiles" not in prompt:
+            prompt["additionalFiles"] = []
 
         # Extract history (default to empty list)
         history = params.get("history", [])
 
         # Extract imported code flag
         is_imported_from_code = params.get("isImportedFromCode", False)
+        
+        # Extract extraction mode flag
+        is_extraction_mode = params.get("isExtractionMode", False)
 
         return ExtractedParams(
             stack=validated_stack,
@@ -292,6 +301,7 @@ class ParameterExtractionStage:
             prompt=prompt,
             history=history,
             is_imported_from_code=is_imported_from_code,
+            is_extraction_mode=is_extraction_mode,
         )
 
     def _get_from_settings_dialog_or_env(
@@ -413,14 +423,56 @@ class PromptCreationStage:
     ) -> tuple[List[ChatCompletionMessageParam], Dict[str, str]]:
         """Create prompt messages and return image cache"""
         try:
-            prompt_messages, image_cache = await create_prompt(
-                stack=extracted_params.stack,
-                input_mode=extracted_params.input_mode,
-                generation_type=extracted_params.generation_type,
-                prompt=extracted_params.prompt,
-                history=extracted_params.history,
-                is_imported_from_code=extracted_params.is_imported_from_code,
-            )
+            if extracted_params.is_extraction_mode:
+                # For extraction mode, use the extraction prompt from the frontend
+                print("=== EXTRACTION MODE DETECTED ===")
+                print(f"Using extraction prompt: {extracted_params.prompt['text'][:100]}...")
+                
+                # Create proper message structure for extraction following the pattern
+                image_cache = {}
+                user_content = []
+                
+                # Add images first (like in normal prompts)
+                if extracted_params.prompt.get("images"):
+                    for i, image_data_url in enumerate(extracted_params.prompt["images"]):
+                        image_id = f"image_{i}"
+                        image_cache[image_id] = image_data_url
+                        user_content.append({
+                            "type": "image_url",
+                            "image_url": {"url": image_data_url, "detail": "high"}
+                        })
+                
+                # Add the extraction text prompt
+                user_content.append({
+                    "type": "text",
+                    "text": extracted_params.prompt["text"]
+                })
+                
+                # Create system and user messages (following normal prompt structure)
+                prompt_messages = [
+                    {
+                        "role": "system",
+                        "content": "You are an expert UI extraction analyst. Analyze the provided screenshot and return structured JSON data as requested."
+                    },
+                    {
+                        "role": "user", 
+                        "content": user_content
+                    }
+                ]
+                        
+                print("=== EXTRACTION PROMPT READY ===")
+                print(f"System message: {prompt_messages[0]['content']}")
+                print(f"User content parts: {len(user_content)} parts")
+            else:
+                # Normal code generation mode
+                prompt_messages, image_cache = await create_prompt(
+                    stack=extracted_params.stack,
+                    input_mode=extracted_params.input_mode,
+                    generation_type=extracted_params.generation_type,
+                    prompt=extracted_params.prompt,
+                    history=extracted_params.history,
+                    is_imported_from_code=extracted_params.is_imported_from_code,
+                )
 
             print_prompt_summary(prompt_messages, truncate=False)
 
@@ -544,12 +596,14 @@ class ParallelGenerationStage:
         openai_base_url: str | None,
         anthropic_api_key: str | None,
         should_generate_images: bool,
+        is_extraction_mode: bool = False,
     ):
         self.send_message = send_message
         self.openai_api_key = openai_api_key
         self.openai_base_url = openai_base_url
         self.anthropic_api_key = anthropic_api_key
         self.should_generate_images = should_generate_images
+        self.is_extraction_mode = is_extraction_mode
 
     async def process_variants(
         self,
@@ -750,11 +804,33 @@ class ParallelGenerationStage:
                     image_cache,
                 )
 
-                # Extract HTML content
-                processed_html = extract_html_content(processed_html)
+                # Log raw result before processing  
+                if self.is_extraction_mode:
+                    print(f"=== EXTRACTION RESULT: {len(processed_html)} chars ===")
+                    print(f"Preview: {processed_html[:200]}...")
+                    print("=" * 50)
+
+                # For extraction mode, extract JSON from markdown blocks
+                if self.is_extraction_mode:
+                    # Extract JSON from markdown code blocks
+                    import re
+                    json_match = re.search(r"```json\s*(.*?)\s*```", processed_html, re.DOTALL)
+                    if json_match:
+                        final_result = json_match.group(1).strip()
+                    else:
+                        # If no markdown blocks, use raw response
+                        final_result = processed_html.strip()
+                else:
+                    # Extract HTML content for normal code generation
+                    final_result = extract_html_content(processed_html)
+
+                # Log final result
+                if self.is_extraction_mode:
+                    print(f"✅ Extraction complete: {len(final_result)} chars")
+                    print(f"Status: {'Valid JSON' if final_result.startswith('{') else 'Raw text'}")
 
                 # Send the complete variant back to the client
-                await self.send_message("setCode", processed_html, index)
+                await self.send_message("setCode", final_result, index)
                 await self.send_message(
                     "variantComplete",
                     "Variant generation complete",
@@ -894,6 +970,7 @@ class CodeGenerationMiddleware(Middleware):
                         openai_base_url=context.extracted_params.openai_base_url,
                         anthropic_api_key=context.extracted_params.anthropic_api_key,
                         should_generate_images=context.extracted_params.should_generate_images,
+                        is_extraction_mode=context.extracted_params.is_extraction_mode,
                     )
 
                     context.variant_completions = (

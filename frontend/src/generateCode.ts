@@ -19,9 +19,13 @@ type WebSocketResponse = {
     | "error"
     | "variantComplete"
     | "variantError"
-    | "variantCount";
+    | "variantCount"
+    | "thinking"
+    | "reasoning"
+    | "phase";
   value: string;
   variantIndex: number;
+  phase?: string; // For phase-specific status updates
 };
 
 interface CodeGenerationCallbacks {
@@ -31,6 +35,9 @@ interface CodeGenerationCallbacks {
   onVariantComplete: (variantIndex: number) => void;
   onVariantError: (variantIndex: number, error: string) => void;
   onVariantCount: (count: number) => void;
+  onThinking: (content: string, variantIndex: number) => void;
+  onReasoning: (content: string, variantIndex: number) => void;
+  onPhase: (phase: string, status: string, variantIndex: number) => void;
   onCancel: () => void;
   onComplete: () => void;
 }
@@ -64,6 +71,12 @@ export function generateCode(
       callbacks.onVariantError(response.variantIndex, response.value);
     } else if (response.type === "variantCount") {
       callbacks.onVariantCount(parseInt(response.value));
+    } else if (response.type === "thinking") {
+      callbacks.onThinking(response.value, response.variantIndex);
+    } else if (response.type === "reasoning") {
+      callbacks.onReasoning(response.value, response.variantIndex);
+    } else if (response.type === "phase") {
+      callbacks.onPhase(response.phase || "unknown", response.value, response.variantIndex);
     } else if (response.type === "error") {
       console.error("Error generating code", response.value);
       toast.error(response.value);

@@ -1,5 +1,5 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FaDownload,
   FaDesktop,
@@ -8,6 +8,7 @@ import {
   FaCode,
   FaColumns,
 } from "react-icons/fa";
+import { BiData } from "react-icons/bi";
 import { AppState, Settings } from "../../types";
 import CodeTab from "./CodeTab";
 // import { Button } from "../ui/button";
@@ -28,9 +29,11 @@ interface Props {
 }
 
 function PreviewPane({ doUpdate, settings, onTabChange }: Props) {
-  const { appState } = useAppStore();
+  const { appState, currentStatus, streamingExtraction, selectedJsonForViewing, setSelectedJsonForViewing } = useAppStore();
   const { inputMode, head, commits, referenceImages } = useProjectStore();
   const [activeTab, setActiveTab] = useState("desktop");
+  const [userSelectedTab, setUserSelectedTab] = useState<string | null>(null);
+  const [wasGenerating, setWasGenerating] = useState(false);
 
   const currentCommit = head && commits[head] ? commits[head] : "";
   const currentCode = currentCommit
@@ -42,9 +45,70 @@ function PreviewPane({ doUpdate, settings, onTabChange }: Props) {
       ? extractHtml(currentCode)
       : currentCode;
 
+  // Get JSON for current commit if available
+  const getCurrentJsonForViewing = () => {
+    if (head && commits[head]) {
+      const { extractionResults } = useAppStore.getState();
+      const extractionResult = extractionResults.get(head);
+      if (extractionResult) {
+        return JSON.stringify(extractionResult, null, 2);
+      }
+    }
+    return null;
+  };
+
+  // Toggle JSON viewing
+  const toggleJsonView = () => {
+    if (selectedJsonForViewing) {
+      setSelectedJsonForViewing(null);
+    } else {
+      const currentJson = getCurrentJsonForViewing();
+      if (currentJson) {
+        setSelectedJsonForViewing(currentJson);
+      }
+    }
+  };
+
+  // Check if JSON is available for current commit
+  const isJsonAvailable = getCurrentJsonForViewing() !== null;
+
+  // Auto-switch logic for live coding feedback - now based on status
+  useEffect(() => {
+    if (currentStatus?.type === "extracting" && !userSelectedTab) {
+      // Switch to split view when extraction starts to show streaming JSON
+      setActiveTab("split");
+    } else if (currentStatus?.type === "generating" && !userSelectedTab) {
+      // Switch to code view when generation actually starts
+      setActiveTab("code");
+      setWasGenerating(true);
+    } else if (appState === AppState.CODE_READY && wasGenerating) {
+      // Generation completed - auto-switch back to preview if no manual selection
+      if (!userSelectedTab) {
+        setActiveTab("desktop");
+      }
+      setWasGenerating(false);
+    }
+  }, [currentStatus, appState, userSelectedTab, wasGenerating]);
+
+  // Auto-switch to code view when JSON is selected for viewing
+  useEffect(() => {
+    if (selectedJsonForViewing && !userSelectedTab) {
+      setActiveTab("code");
+    }
+  }, [selectedJsonForViewing, userSelectedTab]);
+
+  // Reset user selection when starting fresh
+  useEffect(() => {
+    if (appState === AppState.INITIAL) {
+      setUserSelectedTab(null);
+      setWasGenerating(false);
+    }
+  }, [appState]);
+
   const handleTabChange = (value: string) => {
     console.log("PreviewPane: Tab changed to:", value);
     setActiveTab(value);
+    setUserSelectedTab(value); // Track manual user selection
     onTabChange?.(value);
   };
 
@@ -79,13 +143,27 @@ function PreviewPane({ doUpdate, settings, onTabChange }: Props) {
               <TabsTrigger 
                 value="code" 
                 className="w-9 h-9 p-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-500 rounded-none" 
-                title="Code View"
+                title={selectedJsonForViewing ? "JSON View" : "Code View"}
                 style={{
-                  color: activeTab === 'code' ? 'rgb(59, 130, 246)' : 'hsl(0, 0%, 45.1%)'
+                  color: activeTab === 'code' ? (selectedJsonForViewing ? 'rgb(16, 185, 129)' : 'rgb(59, 130, 246)') : 'hsl(0, 0%, 45.1%)'
                 }}
               >
                 <FaCode size={16} />
               </TabsTrigger>
+              {/* JSON Toggle Button - only show when JSON is available */}
+              {isJsonAvailable && (
+                <button
+                  onClick={toggleJsonView}
+                  className={`w-9 h-9 flex items-center justify-center rounded-md transition-colors duration-200 ml-1 ${
+                    selectedJsonForViewing 
+                      ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200' 
+                      : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'
+                  }`}
+                  title={selectedJsonForViewing ? "Switch to Code View" : "Switch to JSON View"}
+                >
+                  <BiData size={16} />
+                </button>
+              )}
             </TabsList>
           </div>
 
@@ -172,30 +250,30 @@ function PreviewPane({ doUpdate, settings, onTabChange }: Props) {
         </TabsContent>
         <TabsContent value="code">
           <CodeTab 
-            code={previewCode} 
+            code={selectedJsonForViewing || previewCode} 
             setCode={() => {}} 
-            settings={settings} 
+            settings={settings}
+            isJson={!!selectedJsonForViewing}
           />
         </TabsContent>
         <TabsContent value="split">
           <div className="flex h-full gap-4 p-0">
-            {/* Left side - Original image/video */}
-            <div className="w-1/2 flex flex-col min-h-0">
-              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center">
+            {/* Left side - Original image/video - Fixed positioning */}
+            <div className="w-1/2 flex flex-col">
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center flex-shrink-0">
                 Original {inputMode === "video" ? "Video" : "Screenshot"}
               </h3>
-              <div className="flex-1 min-h-0 flex items-center justify-center rounded-md bg-gray-50 dark:bg-gray-900" style={{ border: '0 solid #e5e7eb' }}>
+              <div className="flex-1 flex items-start justify-center bg-gray-50 dark:bg-gray-900 pt-4" style={{ border: '0 solid #e5e7eb', minHeight: '500px' }}>
                 {referenceImages.length > 0 ? (
-                  <div
-                    className={classNames("w-full h-full flex items-center justify-center", {
-                      "scanning relative": appState === AppState.CODING,
-                    })}
-                  >
+                  <div className="relative w-full flex items-start justify-center" style={{ minHeight: '400px' }}>
                     {inputMode === "image" && (
                       <img
-                        className="max-w-full max-h-full object-contain rounded-md shadow-lg"
+                        className={classNames("max-w-full object-contain shadow-lg", {
+                          "scanning": appState === AppState.CODING || currentStatus?.type === "extracting",
+                        })}
                         src={referenceImages[0]}
                         alt="Original Screenshot"
+                        style={{ maxHeight: 'calc(100vh - 200px)', maxWidth: '100%' }}
                       />
                     )}
                     {inputMode === "video" && (
@@ -203,31 +281,64 @@ function PreviewPane({ doUpdate, settings, onTabChange }: Props) {
                         muted
                         autoPlay
                         loop
-                        className="w-full h-full object-contain rounded-md shadow-lg"
+                        className={classNames("max-w-full object-contain shadow-lg", {
+                          "scanning": appState === AppState.CODING || currentStatus?.type === "extracting",
+                        })}
                         src={referenceImages[0]}
-                        style={{ maxWidth: '100%', maxHeight: '100%' }}
+                        style={{ maxHeight: 'calc(100vh - 200px)', maxWidth: '100%' }}
                       />
                     )}
                   </div>
                 ) : (
-                  <div className="text-gray-400 dark:text-gray-500 text-center">
+                  <div className="text-gray-400 dark:text-gray-500 text-center flex items-center justify-center h-full">
                     No reference image available
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Right side - Generated preview */}
+            {/* Right side - Generated preview, live code, or streaming extraction */}
             <div className="w-1/2 flex flex-col min-h-0">
-              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center">
-                Generated Code Preview
-              </h3>
-              <div className="flex-1 min-h-0 rounded-md bg-white dark:bg-gray-900" style={{ border: '0 solid #e5e7eb' }}>
-                <iframe
-                  title="Generated Preview"
-                  className="w-full h-full rounded-md"
-                  srcDoc={previewCode}
-                />
+              <div className="flex items-center justify-center mb-3 flex-shrink-0">
+                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  {currentStatus?.type === "extracting" && streamingExtraction ? "Structured Output" 
+                   : appState === AppState.CODING ? "Live Code Generation" 
+                   : "Generated Code Preview"}
+                </h3>
+                {(appState === AppState.CODING || (currentStatus?.type === "extracting" && streamingExtraction)) && (
+                  <div className="ml-2 flex space-x-1">
+                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full counting-animation" style={{ animationDelay: '0s' }} />
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full counting-animation" style={{ animationDelay: '0.3s' }} />
+                    <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full counting-animation" style={{ animationDelay: '0.6s' }} />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 bg-white dark:bg-gray-900" style={{ border: '0 solid #e5e7eb', minHeight: '500px' }}>
+                {currentStatus?.type === "extracting" && streamingExtraction ? (
+                  // Show streaming JSON during extraction
+                  <div className="w-full h-full p-4 overflow-auto font-mono text-sm bg-gray-50 dark:bg-gray-800">
+                    <pre className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                      {streamingExtraction.replace(/^```json\s*/, '').replace(/\s*```$/, '')}
+                      <span className="animate-pulse">|</span>
+                    </pre>
+                  </div>
+                ) : appState === AppState.CODING && currentCode ? (
+                  // Show live code during generation
+                  <div className="w-full h-full p-4 overflow-auto font-mono text-sm bg-gray-50 dark:bg-gray-800">
+                    <pre className="whitespace-pre-wrap text-gray-800 dark:text-gray-200">
+                      {currentCode}
+                      <span className="animate-pulse">|</span>
+                    </pre>
+                  </div>
+                ) : (
+                  // Show HTML preview when complete - better sizing and no rounding
+                  <iframe
+                    title="Generated Preview"
+                    className="w-full h-full border-0"
+                    srcDoc={previewCode}
+                    style={{ minHeight: '500px', height: 'calc(100vh - 200px)' }}
+                  />
+                )}
               </div>
             </div>
           </div>

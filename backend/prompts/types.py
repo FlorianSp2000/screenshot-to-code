@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict, List
+from typing import Literal, TypedDict, List, Optional, Any
 
 
 class SystemPrompts(TypedDict):
@@ -12,10 +12,11 @@ class SystemPrompts(TypedDict):
 
 
 class PromptContent(TypedDict):
-    """Unified structure for prompt text and images."""
+    """Unified structure for prompt text, images, and additional files."""
 
     text: str
     images: List[str]
+    additionalFiles: Optional[List[Any]]
 
 
 Stack = Literal[

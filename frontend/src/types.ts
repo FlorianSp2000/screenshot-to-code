@@ -1,5 +1,6 @@
 import { Stack } from "./lib/stacks";
 import { CodeGenerationModel } from "./lib/models";
+import { UIExtractionResult } from "./services/extractionService";
 
 export enum EditorTheme {
   ESPRESSO = "espresso",
@@ -34,6 +35,16 @@ export enum ScreenRecorderState {
 export interface PromptContent {
   text: string;
   images: string[]; // Array of data URLs
+  additionalFiles?: any[]; // Additional files like CSS, assets, etc.
+}
+
+export interface SerializedFile {
+  id: string;
+  category: string;
+  dataUrl?: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
 }
 
 export interface CodeGenerationParams {
@@ -42,6 +53,8 @@ export interface CodeGenerationParams {
   prompt: PromptContent;
   history?: PromptContent[];
   isImportedFromCode?: boolean;
+  additionalFiles?: SerializedFile[]; // Additional files like CSS, assets, etc.
+  extractionResult?: UIExtractionResult; // Structured UI analysis from extraction phase
 }
 
 export type FullGenerationSettings = CodeGenerationParams & Settings;

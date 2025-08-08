@@ -7,9 +7,29 @@ import { FaArrowUp } from "react-icons/fa";
 function fileToDataURL(file: File) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
+    
+    // For CSS/SCSS files, read as text and manually create data URL
+    if (file.name.endsWith('.css') || file.name.endsWith('.scss') || file.name.endsWith('.sass') || file.type.includes('css')) {
+      reader.onload = () => {
+        const text = reader.result as string;
+        console.log(`[CSS DEBUG] Original text length: ${text.length}`);
+        console.log(`[CSS DEBUG] Original text preview: ${text.substring(0, 200)}`);
+        
+        // Create proper data URL for CSS content
+        const dataUrl = `data:text/css;charset=utf-8;base64,${btoa(unescape(encodeURIComponent(text)))}`;
+        console.log(`[CSS DEBUG] Created data URL length: ${dataUrl.length}`);
+        console.log(`[CSS DEBUG] Data URL prefix: ${dataUrl.substring(0, 100)}`);
+        
+        resolve(dataUrl);
+      };
+      reader.onerror = (error) => reject(error);
+      reader.readAsText(file);
+    } else {
+      // For other files (images, etc.), use the standard approach
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    }
   });
 }
 
@@ -30,6 +50,7 @@ interface Props {
 
 function InteractiveFileUpload({ files, onFilesChange }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
 
   const { getRootProps, getInputProps } = useDropzone({
     maxFiles: 10, // Allow multiple files now
@@ -108,11 +129,17 @@ function InteractiveFileUpload({ files, onFilesChange }: Props) {
       <div 
         {...getRootProps({ 
           className: `
-            relative p-16 rounded-2xl border-2 border-dashed border-gray-300 
-            bg-gray-50 hover:bg-gray-100 transition-all duration-300 cursor-pointer
-            ${isDragOver ? 'border-blue-500 bg-blue-50' : ''}
+            relative p-16 rounded-2xl border-2 border-dashed transition-all duration-300 cursor-pointer
+            ${isDragOver 
+              ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-200/50 drag-expand' 
+              : isHovering 
+                ? 'border-blue-400 bg-gray-100 pulse-glow'
+                : 'border-gray-300 bg-gray-50 hover:bg-gray-100'
+            }
           `
         })}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
       >
         <input {...getInputProps()} />
         
@@ -146,24 +173,36 @@ function InteractiveFileUpload({ files, onFilesChange }: Props) {
           <div className="flex justify-center mb-6">
             <div 
               className={`
-                w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-300
-                ${isDragOver ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}
+                w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300
+                ${isDragOver 
+                  ? 'bg-blue-500 text-white scale-110 shadow-lg' 
+                  : isHovering 
+                    ? 'bg-blue-100 text-blue-600 scale-105' 
+                    : 'bg-gray-100 text-gray-500'
+                }
               `}
             >
-              <FaArrowUp size={24} />
+              <FaArrowUp 
+                size={24} 
+                className={isHovering && !isDragOver ? 'animate-bounce' : ''}
+              />
             </div>
           </div>
           
           {/* Title text */}
           <h3 className="text-xl font-semibold text-gray-800 text-center mb-2">
-            Upload File
+            {isDragOver ? "Drop it like it's hot!" : "Upload Files"}
           </h3>
           
           {/* Instructional text */}
-          <p className="text-gray-500 text-center mb-4">
-            {files.length === 0 
-              ? "Drag or drop your files here, or click to browse"
-              : `${files.length} file${files.length === 1 ? '' : 's'} uploaded. Add more or categorize below.`
+          <p className={`text-center mb-4 transition-colors duration-300 ${
+            isDragOver ? 'text-blue-600 font-medium' : 'text-gray-500'
+          }`}>
+            {isDragOver 
+              ? "Release to upload your files!"
+              : files.length === 0 
+                ? "Drag or drop your files here, or click to browse"
+                : `${files.length} file${files.length === 1 ? '' : 's'} uploaded. Add more or categorize below.`
             }
           </p>
           
