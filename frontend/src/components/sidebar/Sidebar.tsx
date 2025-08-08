@@ -61,7 +61,7 @@ function Sidebar({
     }
   }, [updateImages, setUpdateImages]);
 // referenceImages, 
-  const { inputMode, head, commits, setHead, updateSelectedVariantIndex } = useProjectStore();
+  const { inputMode, head, commits, setHead, updateSelectedVariantIndex, referenceImages } = useProjectStore();
 
   // const viewedCode =
   //   head && commits[head]
@@ -113,6 +113,7 @@ function Sidebar({
       variantIndex?: number;
       isActive?: boolean;
       hasArtifact?: boolean;
+      images?: string[];
     }> = [];
 
     let versionCounter = 0;
@@ -130,16 +131,19 @@ function Sidebar({
           type: 'user',
           content: 'Create this UI from the provided image',
           timestamp: new Date(),
+          images: referenceImages, // Add reference images for initial create
         });
       } else if (commit.type === 'ai_edit' && commit.inputs) {
         // For edit commits, show the actual user input
         const inputs = commit.inputs as any;
         const userText = typeof inputs === 'string' ? inputs : 
                         inputs?.text || 'Modify the design';
+        const userImages = typeof inputs === 'object' && inputs?.images ? inputs.images : [];
         history.push({
           type: 'user',
           content: userText,
           timestamp: new Date(),
+          images: userImages, // Add any images from the edit inputs
         });
       }
 
@@ -192,7 +196,24 @@ function Sidebar({
             
             {/* Message Content */}
             <div className="flex-1 min-w-0">
-              {message.type === 'system' && message.commitId && message.hasArtifact ? (
+              {message.type === 'user' ? (
+                <div className="bg-white border border-gray-200 rounded-lg px-3 py-2">
+                  <div className="text-sm text-gray-900">{message.content}</div>
+                  {/* Show images below user message if they exist */}
+                  {message.images && message.images.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {message.images.map((image, imgIndex) => (
+                        <img
+                          key={imgIndex}
+                          src={image}
+                          alt={`Reference ${imgIndex + 1}`}
+                          className="max-w-32 max-h-24 object-cover rounded border border-gray-200 shadow-sm"
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : message.type === 'system' && message.commitId && message.hasArtifact ? (
                 <div 
                   className={`inline-block px-3 py-2 rounded-lg cursor-pointer transition-colors ${
                     message.isActive 

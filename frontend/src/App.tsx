@@ -19,7 +19,7 @@ import { useProjectStore } from "./store/project-store";
 import Sidebar from "./components/sidebar/Sidebar";
 import PreviewPane from "./components/preview/PreviewPane";
 import DeprecationMessage from "./components/messages/DeprecationMessage";
-import { GenerationSettings } from "./components/settings/GenerationSettings";
+// import { GenerationSettings } from "./components/settings/GenerationSettings";
 import StartPane from "./components/start-pane/StartPane";
 import { Commit } from "./components/commits/types";
 import { createCommit } from "./components/commits/utils";
@@ -432,11 +432,12 @@ function App() {
           onOpenChange={handleTermDialogOpenChange}
         />
       )}
-      {/* Conditionally hide sidebar in split view with smooth transition */}
-      <div 
-        className={`lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col transition-transform duration-300 ease-in-out ${activeTab === "split" ? "lg:-translate-x-full" : "lg:translate-x-0"}`}
-        style={{ width: `${sidebarWidth}px` }}
-      >
+      {/* Hide sidebar completely in initial state and split view */}
+      {appState !== AppState.INITIAL && (
+        <div 
+          className={`lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:flex-col transition-transform duration-300 ease-in-out ${activeTab === "split" ? "lg:-translate-x-full" : "lg:translate-x-0"}`}
+          style={{ width: `${sidebarWidth}px` }}
+        >
         <div className="flex grow flex-col gap-y-2 overflow-y-auto bg-white dark:bg-zinc-950 dark:text-white relative">
           {/* Resize handle */}
           <div 
@@ -476,23 +477,17 @@ function App() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={reset}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex items-center justify-center"
                   title="Go to Home"
                 >
-                  <FaHome size={14} />
+                  <FaHome />
                 </button>
                 <SettingsDialog settings={settings} setSettings={setSettings} />
               </div>
             </div>
             <div className="border-b border-gray-200 dark:border-gray-700"></div>
           </div>
-          {/* Only show generation settings in initial state */}
-          {appState === AppState.INITIAL && (
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              {/* Generation settings like stack and model */}
-              <GenerationSettings settings={settings} setSettings={setSettings} />
-            </div>
-          )}
+          {/* Only show generation settings in initial state - but this section is inside the sidebar which is only shown when NOT in initial state, so this condition will never be true */}
 
           {/* Show auto updated message when older models are choosen */}
           {showBetterModelMessage && (
@@ -528,11 +523,16 @@ function App() {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      )}
 
       <main 
         className={activeTab === "split" ? "" : ""}
-        style={{ paddingLeft: activeTab === "split" ? "0" : `${sidebarWidth}px` }}
+        style={{ 
+          paddingLeft: appState === AppState.INITIAL || activeTab === "split" 
+            ? "0" 
+            : `${sidebarWidth}px` 
+        }}
       >
         {appState === AppState.INITIAL && (
           <StartPane
