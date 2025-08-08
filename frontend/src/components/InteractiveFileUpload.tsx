@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "react-hot-toast";
 import { FaArrowUp } from "react-icons/fa";
+import { CompactFrameworkSelector } from "./settings/CompactFrameworkSelector";
+import { Stack } from "../lib/stacks";
 
 // Helper function to convert file to data URL
 function fileToDataURL(file: File) {
@@ -46,9 +48,11 @@ export type CategorizedFile = {
 interface Props {
   files: CategorizedFile[];
   onFilesChange: (files: CategorizedFile[]) => void;
+  selectedStack: Stack;
+  onStackChange: (stack: Stack) => void;
 }
 
-function InteractiveFileUpload({ files, onFilesChange }: Props) {
+function InteractiveFileUpload({ files, onFilesChange, selectedStack, onStackChange }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
 
@@ -142,6 +146,13 @@ function InteractiveFileUpload({ files, onFilesChange }: Props) {
         onMouseLeave={() => setIsHovering(false)}
       >
         <input {...getInputProps()} />
+        
+        {/* Framework Selector - positioned in top-right corner */}
+        <CompactFrameworkSelector 
+          selectedStack={selectedStack}
+          onStackChange={onStackChange}
+          disabled={isDragOver} // Disable during drag to prevent interference
+        />
         
         {/* Background striped pattern - only visible on drag over */}
         {isDragOver && (

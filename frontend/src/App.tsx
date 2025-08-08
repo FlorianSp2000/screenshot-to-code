@@ -31,7 +31,7 @@ import { conversationService } from "./services/conversationService";
 
 function App() {
   const [activeTab, setActiveTab] = useState("desktop");
-  const [conversationName, setConversationName] = useState("DigitalLounge@Lakeside");
+  const [conversationName, setConversationName] = useState("Jivs");
   const [isEditingName, setIsEditingName] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(442); // 384px + 15% = ~442px
   const [isResizing, setIsResizing] = useState(false);
@@ -593,8 +593,12 @@ function App() {
     // Reset any existing state
     reset();
     
-    // Add user message to conversation with attached images
-    conversationService.addUserMessage("Create this UI from the provided image", referenceImages);
+    // Add user message to conversation with all attached files
+    const allFiles = [...referenceImages];
+    if (additionalFiles) {
+      allFiles.push(...additionalFiles.map(file => file.dataUrl!));
+    }
+    conversationService.addUserMessage("Create this UI from the provided image", allFiles);
 
     // Set the input states
     setReferenceImages(referenceImages);
@@ -767,7 +771,7 @@ function App() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") setIsEditingName(false);
                       if (e.key === "Escape") {
-                        setConversationName("DigitalLounge@Lakeside");
+                        setConversationName("Jivs");
                         setIsEditingName(false);
                       }
                     }}
@@ -846,6 +850,8 @@ function App() {
         {appState === AppState.INITIAL && (
           <StartPane
             doCreate={doCreate}
+            settings={settings}
+            setSettings={setSettings}
           />
         )}
 

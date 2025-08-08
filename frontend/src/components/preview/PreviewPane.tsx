@@ -263,12 +263,12 @@ function PreviewPane({ doUpdate, settings, onTabChange }: Props) {
               <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3 text-center flex-shrink-0">
                 Original {inputMode === "video" ? "Video" : "Screenshot"}
               </h3>
-              <div className="flex-1 flex items-start justify-center bg-gray-50 dark:bg-gray-900 pt-4" style={{ border: '0 solid #e5e7eb', minHeight: '500px' }}>
+              <div className="flex-1 flex items-start justify-center bg-gray-50 dark:bg-gray-900" style={{ border: '0 solid #e5e7eb', minHeight: '500px' }}>
                 {referenceImages.length > 0 ? (
-                  <div className="relative w-full flex items-start justify-center" style={{ minHeight: '400px' }}>
+                  <div className="relative w-full h-full flex items-start justify-center" style={{ minHeight: '400px' }}>
                     {inputMode === "image" && (
                       <img
-                        className={classNames("max-w-full object-contain shadow-lg", {
+                        className={classNames("max-w-full object-contain h-full shadow-lg", {
                           "scanning": appState === AppState.CODING || currentStatus?.type === "extracting",
                         })}
                         src={referenceImages[0]}

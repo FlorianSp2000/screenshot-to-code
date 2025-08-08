@@ -7,10 +7,7 @@ Supported stacks:
 - HTML + Tailwind
 - HTML + CSS
 - React + Tailwind
-- Vue + Tailwind
 - Bootstrap
-- Ionic + Tailwind
-- SVG
 
 Supported AI models:
 

@@ -218,6 +218,7 @@ class ExtractedParams:
     history: List[Dict[str, Any]]
     is_imported_from_code: bool
     is_extraction_mode: bool
+    asset_urls: List[Dict[str, Any]] = field(default_factory=list)
 
 
 class ParameterExtractionStage:
@@ -287,6 +288,34 @@ class ParameterExtractionStage:
         # Extract imported code flag
         is_imported_from_code = params.get("isImportedFromCode", False)
         
+        # Process assets and create accessible URLs
+        asset_urls = []
+        if prompt.get("additionalFiles"):
+            from routes.assets import asset_store
+            import uuid
+            
+            asset_files = [f for f in prompt["additionalFiles"] if f.get('category') == 'asset']
+            for asset in asset_files:
+                # Generate unique asset ID and store
+                asset_id = str(uuid.uuid4())
+                asset_store[asset_id] = {
+                    'dataUrl': asset.get('dataUrl'),
+                    'fileName': asset.get('fileName', f'asset-{asset_id}'),
+                    'fileType': asset.get('fileType', 'application/octet-stream'),
+                    'category': asset.get('category')
+                }
+                
+                # Create accessible URL (assuming backend runs on same host)
+                asset_url = f"/assets/{asset_id}"
+                asset_urls.append({
+                    'id': asset_id,
+                    'url': asset_url,
+                    'fileName': asset.get('fileName'),
+                    'category': asset.get('category')
+                })
+                
+                print(f"[CODEGEN] Stored asset {asset_id}: {asset.get('fileName')} -> {asset_url}")
+        
         # Extract extraction mode flag
         is_extraction_mode = params.get("isExtractionMode", False)
 
@@ -302,6 +331,7 @@ class ParameterExtractionStage:
             history=history,
             is_imported_from_code=is_imported_from_code,
             is_extraction_mode=is_extraction_mode,
+            asset_urls=asset_urls,
         )
 
     def _get_from_settings_dialog_or_env(
@@ -472,6 +502,7 @@ class PromptCreationStage:
                     prompt=extracted_params.prompt,
                     history=extracted_params.history,
                     is_imported_from_code=extracted_params.is_imported_from_code,
+                    asset_urls=extracted_params.asset_urls,
                 )
 
             print_prompt_summary(prompt_messages, truncate=False)

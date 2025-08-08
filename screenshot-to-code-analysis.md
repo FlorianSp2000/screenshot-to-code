@@ -42,9 +42,6 @@ Screenshot-to-Code is a sophisticated AI-powered application that converts scree
 - HTML + CSS
 - React + Tailwind
 - Bootstrap
-- Vue + Tailwind (Beta)
-- Ionic + Tailwind (Beta)
-- SVG (Beta)
 
 ## 🧠 AI Model Integration
 
@@ -387,7 +384,7 @@ MOCK=true poetry run uvicorn main:app --reload --port 7001
 - **HTML/Tailwind**: Modern utility-first CSS
 - **React**: Component-based applications
 - **Bootstrap**: Traditional responsive design
-- **Vue/Ionic**: Mobile and web applications
+<!-- - **Vue/Ionic**: Mobile and web applications -->
 
 ## 📈 Future Extensibility
 

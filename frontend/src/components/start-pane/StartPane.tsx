@@ -2,20 +2,19 @@ import React, { useState } from "react";
 import InteractiveFileUpload, { CategorizedFile } from "../InteractiveFileUpload";
 import FilePreview from "../FilePreview";
 import ProcessButton from "../ProcessButton";
-import { SerializedFile } from "../../types";
+import { SerializedFile, Settings } from "../../types";
 // import { UrlInputSection } from "../UrlInputSection";
 // import ImportCodeSection from "../ImportCodeSection";
-// import { Settings } from "../../types";
-// import { Stack } from "../../lib/stacks";
 
 interface Props {
   doCreate: (images: string[], inputMode: "image" | "video", additionalFiles?: SerializedFile[]) => void;
+  settings: Settings;
+  setSettings: React.Dispatch<React.SetStateAction<Settings>>;
   // TODO: Temporarily commented out - focusing on image-to-code functionality
   // importFromCode: (code: string, stack: Stack) => void;
-  // settings: Settings;
 }
 
-const StartPane: React.FC<Props> = ({ doCreate }) => {
+const StartPane: React.FC<Props> = ({ doCreate, settings, setSettings }) => {
   const [files, setFiles] = useState<CategorizedFile[]>([]);
 
   const handleProcessFiles = (filesToProcess: CategorizedFile[]) => {
@@ -101,7 +100,12 @@ const StartPane: React.FC<Props> = ({ doCreate }) => {
 
       {/* Upload Section */}
       <div className="w-full max-w-4xl">
-        <InteractiveFileUpload files={files} onFilesChange={setFiles} />
+        <InteractiveFileUpload 
+          files={files} 
+          onFilesChange={setFiles}
+          selectedStack={settings.generatedCodeConfig}
+          onStackChange={(stack) => setSettings(prev => ({ ...prev, generatedCodeConfig: stack }))}
+        />
       </div>
 
       {/* File Preview Section */}
